@@ -136,13 +136,42 @@ function searchMovies(query) {
       // Task 2.2: Render the results returned from the server. Make sure to
       // include an "Add" button for each result that calls `addMovie(imdbID)` when clicked.
       // There is a second part to this task, in `addMovie`
+      if (results.length === 0) {
+        resultsDiv.textContent = messages.noResultsFound;
+        return;
+      }
+
+      results.forEach(movie => {
+        const resultItem = new ElementBuilder("div").addClass("search-result-item");
+
+        // Titel und Jahr anzeigen
+        new ElementBuilder("span")
+            .text(`${movie.Title} (${movie.Year}) `)
+            .appendTo(resultItem);
+
+        // Add-Button erstellen
+        const addBtn = new ButtonBuilder("Add").onclick(() => {
+          addMovie(movie.imdbID);
+          // Nach Erfolg aus der Liste entfernen (wird in addMovie erledigt)
+          resultItem.remove();
+        });
+
+        addBtn.appendTo(resultItem);
+        resultItem.appendTo(resultsDiv);
+      });
 
     })
-    .catch(error => {
-      console.error('Search failed:', error);
-      const resultsDiv = document.getElementById("searchResults");
-      new ElementBuilder("p").text(messages.searchFailed).appendTo(resultsDiv);
-    });
+      .catch(error => {
+        console.error('Search failed:', error);
+        const resultsDiv = document.getElementById("searchResults");
+
+        // WICHTIG: Erst leeren, dann Fehlermeldung rein
+        resultsDiv.innerHTML = '';
+
+        new ElementBuilder("p")
+            .text(messages.searchFailed)
+            .appendTo(resultsDiv);
+      });
 }
 
 window.onload = function () {
@@ -165,9 +194,16 @@ window.onload = function () {
   function renderUserGreeting() {
     const greetingElement = document.getElementById('userGreeting');
     if (currentSession) {
-      // Task 1.2: Render a user greeting to `#userGreeting` 
-      // using `firstName`, `lastName`, and the server-provided
-      // login timestamp.
+      // Task 1.2: Hier muss loginTime stehen, damit es zum Server-Code passt!
+      const { firstName, lastName, loginTime } = currentSession;
+      const date = new Date(loginTime);
+
+      // Formatierung: 19. April 2026 um 21:15
+      const options = { day: 'numeric', month: 'long', year: 'numeric' };
+      const formattedDate = date.toLocaleDateString('de-DE', options);
+      const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+      greetingElement.textContent = `Hi ${firstName} ${lastName}, du hast dich am ${formattedDate} um ${formattedTime} angemeldet.`;
     } else {
       greetingElement.textContent = messages.loggedOutGreeting;
     }
@@ -215,6 +251,28 @@ window.onload = function () {
     // Task 1.1: Implement the login submit flow to call `POST /login` 
     // with username and password, handle errors, save the response 
     // into `currentSession`, then call `updateUI()` and `loadMovies()`.
+
+    const data = Object.fromEntries(formData.entries());
+
+    fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+        .then(response => {
+          if (!response.ok) throw new Error(messages.loginFailed);
+          return response.json();
+        })
+        .then(session => {
+          currentSession = session;
+          document.getElementById('loginDialog').close();
+          updateUI();
+          loadMovies();
+        })
+        .catch(error => {
+          console.error('Login error:', error);
+          alert(error.message);
+        });
 
   });
 
